@@ -22,5 +22,6 @@
 int le_init();
 void le_log(const char* message);
 void le_set_token(const char* token);
+void le_set_idfv(const char* idfv);
 
 #endif

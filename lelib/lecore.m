@@ -17,6 +17,7 @@ LEBackgroundThread* backgroundThread;
 
 dispatch_queue_t le_write_queue;
 char* le_token;
+char* le_idfv;
 
 static int logfile_descriptor;
 static int logfile_size;
@@ -151,7 +152,8 @@ void le_log(const char* message)
     dispatch_sync(le_write_queue, ^{
         
         size_t token_length = strlen(le_token);
-        size_t max_length = MAXIMUM_LOGENTRY_SIZE - token_length - 2; // minus token length, space separator and lf
+        size_t idfv_length = strlen(le_idfv);
+        size_t max_length = MAXIMUM_LOGENTRY_SIZE - token_length - idfv_length - 3; // minus token length, idfv length, space separators and lf
         
         size_t length = strlen(message);
         if (max_length < length) {
@@ -161,9 +163,11 @@ void le_log(const char* message)
 
         memcpy(buffer, le_token, token_length);
         buffer[token_length] = ' ';
-        memcpy(buffer + token_length + 1, message, length);
+        memcpy(buffer + token_length + 1, le_idfv, idfv_length);
+        buffer[token_length + 1 + idfv_length] = ' ';
+        memcpy(buffer + token_length + 1 + idfv_length + 1, message, length);
         
-        size_t total_length = token_length + 1 + length;
+        size_t total_length = token_length + 1 + idfv_length + 1 + length;
         buffer[total_length++] = '\n';
         
         write_buffer(total_length);
@@ -177,26 +181,29 @@ void le_write_string(NSString* string)
     dispatch_sync(le_write_queue, ^{
         
         NSUInteger tokenLength = strlen(le_token);
+        NSUInteger idfvLength = strlen(le_idfv);
         
-        NSUInteger maxLength = MAXIMUM_LOGENTRY_SIZE - tokenLength - 2; // minus token length, space separator and \n
+        NSUInteger maxLength = MAXIMUM_LOGENTRY_SIZE - tokenLength - idfvLength - 3; // minus token length, idfv length, space separators and \n
         if ([string length] > maxLength) {
             LE_DEBUG(@"Too large message, it will be truncated");
         }
         
         memcpy(buffer, le_token, tokenLength);
         buffer[tokenLength] = ' ';
+        memcpy(buffer + tokenLength + 1, le_idfv, idfvLength);
+        buffer[tokenLength + 1 + idfvLength] = ' ';
 
         NSRange range = {.location = 0, .length = [string length]};
         
         NSUInteger usedLength = 0;
-        BOOL r = [string getBytes:(buffer + tokenLength + 1) maxLength:maxLength usedLength:&usedLength encoding:NSUTF8StringEncoding options:NSStringEncodingConversionAllowLossy range:range remainingRange:NULL];
+        BOOL r = [string getBytes:(buffer + tokenLength + 1 + idfvLength + 1) maxLength:maxLength usedLength:&usedLength encoding:NSUTF8StringEncoding options:NSStringEncodingConversionAllowLossy range:range remainingRange:NULL];
         
         if (!r) {
             LE_DEBUG(@"Error converting message characters.");
             return;
         }
         
-        NSUInteger totalLength = tokenLength + 1 + usedLength;
+        NSUInteger totalLength = tokenLength + 1 + idfvLength + 1 + usedLength;
         buffer[totalLength++] = '\n';
         write_buffer((size_t)totalLength);
     });
@@ -228,3 +235,31 @@ void le_set_token(const char* token)
         le_token = buffer;
     });
 }
+
+void le_set_idfv(const char* idfv)
+{
+    size_t length = strlen(idfv);
+    
+    if (length < 1) {
+        LE_DEBUG(@"Invalid idfv length, it will not be used.");
+        return;
+    }
+    
+    if (length >= MAXIMUM_LOGENTRY_SIZE) {
+        LE_DEBUG(@"idfv too large, it will not be used.");
+        return;
+    }
+    
+    char* buffer = malloc(length + 1);
+    if (!buffer) {
+        LE_DEBUG(@"Can't allocate idfv buffer.");
+        return;
+    }
+    
+    strcpy(buffer, idfv);
+    
+    dispatch_sync(le_write_queue, ^{
+        le_idfv = buffer;
+    });
+}
+

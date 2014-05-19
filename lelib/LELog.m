@@ -22,6 +22,8 @@ void le_poke();
 extern dispatch_queue_t le_write_queue;
 extern char* le_token;
 
+extern char *le_idfv;
+
 @implementation LELog
 
 - (id)init
@@ -31,6 +33,12 @@ extern char* le_token;
     
     NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
     [center addObserver:self selector:@selector(notificationReceived:) name:UIApplicationWillEnterForegroundNotification object:nil];
+
+    if ([[UIDevice currentDevice] respondsToSelector:@selector(identifierForVendor)]) {
+        [self setIDFV:[[[UIDevice currentDevice] identifierForVendor] UUIDString]];
+    } else {
+        [self setIDFV:[NSString stringWithFormat:@"RAND_%u", arc4random()]];
+    }
 
     le_poke();
 
@@ -77,6 +85,11 @@ extern char* le_token;
 - (void)setToken:(NSString *)token
 {
     le_set_token([token cStringUsingEncoding:NSUTF8StringEncoding]);
+}
+
+- (void)setIDFV:(NSString *)idfv
+{
+    le_set_idfv([idfv cStringUsingEncoding:NSUTF8StringEncoding]);
 }
 
 - (NSString*)token
