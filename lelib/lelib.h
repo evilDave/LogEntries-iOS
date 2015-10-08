@@ -6,7 +6,7 @@
 //  Copyright (c) 2013 JLizard. All rights reserved.
 //
 
-#define LE_DEBUG_LOGS   1
+#define LE_DEBUG_LOGS   0
 
 #if LE_DEBUG_LOGS
 #define LE_DEBUG(...)         NSLog(__VA_ARGS__)
